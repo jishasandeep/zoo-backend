@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zoo-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: zoo-backend
+  template:
+    metadata:
+      labels:
+        app: zoo-backend
+    spec:
+      containers:
+      - name: zoo-backend
+        image: yourrepo/zoo-backend:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+        env:
+        - name: SPRING_DATA_MONGODB_URI
+          value: mongodb://mongo:27017/zoodb

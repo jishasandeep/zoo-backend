@@ -1,0 +1,19 @@
+version: '3.8'
+services:
+  mongo:
+    image: mongo:6.0
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+  app:
+    build: .
+    depends_on:
+      - mongo
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATA_MONGODB_URI=mongodb://mongo:27017/zoodb
+volumes:
+  mongo_data:

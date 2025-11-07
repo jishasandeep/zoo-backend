@@ -1,0 +1,33 @@
+spring:
+  data:
+    mongodb:
+      uri: ${SPRING_DATA_MONGODB_URI:mongodb://localhost:27017/zoodb}
+  jackson:
+    serialization:
+      WRITE_DATES_AS_TIMESTAMPS: false
+server:
+  port: 8080
+logging:
+  level:
+    root: INFO
+resilience4j:
+  circuitbreaker:
+    instances:
+      roomService:
+        register-health-indicator: true
+        failure-rate-threshold: 50
+        slow-call-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        automatic-transition-from-open-to-half-open-enabled: true
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info"
+  endpoint:
+    health:
+      show-details: always
+
