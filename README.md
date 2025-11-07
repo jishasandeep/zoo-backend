@@ -90,5 +90,5 @@ This project uses **MongoDB** as the database, **Caffeine** for caching, and pro
 ### Running Locally
 1. Clone the repository:
    ```bash
-   git clone https://github.com/your-username/zoo-backend.git
+   git clone https://github.com/jishasandeep/zoo-backend.git
    cd zoo-backend
