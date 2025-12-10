@@ -177,8 +177,8 @@ public class ZooIntegrationTest {
 
         // Step 4: Get all animals in the room
         MvcResult getAnimalsResult = mvc.perform(get("/api/v1/rooms/{roomId}/animals", roomId)
-                        .param("sort", "title")
-                        .param("order", "asc")
+                        .param("sort", "TITLE")
+                        .param("order", "ASC")
                         .param("page", "0")
                         .param("size", "10")
                         .accept(MediaType.APPLICATION_JSON))
@@ -240,8 +240,8 @@ public class ZooIntegrationTest {
 
         // Step 4: Get all animals in the room
         MvcResult getAnimalsResult = mvc.perform(get("/api/v1/rooms/{roomId}/animals", roomId)
-                        .param("sort", "located")
-                        .param("order", "desc")
+                        .param("sort", "LOCATED")
+                        .param("order", "DESC")
                         .param("page", "0")
                         .param("size", "10")
                         .accept(MediaType.APPLICATION_JSON))

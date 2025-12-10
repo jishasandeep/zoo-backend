@@ -2,7 +2,9 @@ package com.er.zoo.controller;
 
 
 import com.er.zoo.dto.*;
+import com.er.zoo.enums.SortField;
 import com.er.zoo.logging.LoggerService;
+import com.er.zoo.model.Room;
 import com.er.zoo.service.AnimalService;
 import com.er.zoo.service.RoomService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -13,6 +15,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -45,18 +48,20 @@ class RoomControllerTest {
 
     private RoomResponse roomResponse;
     private AnimalResponse animalResponse;
+    private Room room;
 
     @BeforeEach
     void setup() {
         roomResponse = new RoomResponse("r1", "Green", null,null,"1");
         animalResponse = new AnimalResponse("a1", "Lion",  LocalDate.now(),
                 null, null,"R1",null,"1");
+        room = new Room("r1", "Green", null,null,null,1);
     }
 
     @Test
     void createRoom_ShouldReturn201() throws Exception {
         RoomCreateRequest request = new RoomCreateRequest("Green");
-        when(roomService.create(any(), eq("key123"))).thenReturn(roomResponse);
+        when(roomService.create(any(), eq("key123"))).thenReturn(room);
 
         mockMvc.perform(post("/api/v1/rooms")
                         .header("Idempotency-Key", "key123")
@@ -130,17 +135,18 @@ class RoomControllerTest {
     @Test
     void getAnimalsInRoom_ShouldReturnPagedAnimals() throws Exception {
         var page = new PageImpl<>(List.of(animalResponse), PageRequest.of(0, 10), 1);
-        when(animalService.getAnimalsInRoom("r1", "title", "asc", 0, 20)).thenReturn(page);
+        RoomRequest roomRequest = new RoomRequest("r1", SortField.TITLE, Sort.Direction.ASC, 0, 20);
+        when(animalService.getAnimalsInRoom(roomRequest)).thenReturn(page);
 
         mockMvc.perform(get("/api/v1/rooms/r1/animals")
-                        .param("sort", "title")
-                        .param("order", "asc")
+                        .param("sort", "TITLE")
+                        .param("order", "ASC")
                         .param("page", "0")
                         .param("size", "20"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].title").value("Lion"));
 
-        verify(animalService).getAnimalsInRoom("r1", "title", "asc", 0, 20);
+        verify(animalService).getAnimalsInRoom(roomRequest);
     }
 
 

@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.er.zoo.dto.*;
 import com.er.zoo.model.Room;
-import com.er.zoo.mapper.RoomMapper;
 import com.er.zoo.repository.RoomRepository;
 import com.er.zoo.logging.LoggerService;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,13 +15,13 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.mockito.Mockito.*;
+import static org.mockito.MockitoAnnotations.openMocks;
 
 class RoomServiceTest {
 
     @Mock
     private RoomRepository roomRepository;
-    @Mock
-    private RoomMapper roomMapper;
+
     @Mock
     private IdempotencyService idempotencyService;
     @Mock
@@ -34,11 +33,10 @@ class RoomServiceTest {
     private Room room;
     private RoomCreateRequest createRequest;
     private RoomUpdateRequest updateRequest;
-    private RoomResponse response;
 
     @BeforeEach
     void setup() {
-        MockitoAnnotations.openMocks(this);
+        openMocks(this);
 
         room = new Room();
         room.setId("room1");
@@ -47,21 +45,18 @@ class RoomServiceTest {
 
         createRequest = new RoomCreateRequest("Blue");
         updateRequest = new RoomUpdateRequest("Jungle");
-        response = new RoomResponse("room1", "Blue",null,null, "1");
     }
 
     @Test
     void create_ShouldRegisterKeyAndSaveRoom() {
         when(idempotencyService.registerKey(any())).thenReturn(true);
-        when(roomMapper.toEntity(createRequest)).thenReturn(room);
-        when(roomRepository.save(room)).thenReturn(room);
-        when(roomMapper.toResponse(room)).thenReturn(response);
+        when(roomRepository.save(any())).thenReturn(room);
 
-        RoomResponse result = roomService.create(createRequest, "key123");
+        Room result = roomService.create(createRequest, "key123");
 
         verify(idempotencyService).registerKey("key123");
         verify(roomRepository).save(room);
-        assertEquals("Blue", result.title());
+        assertEquals("Blue", result.getTitle());
     }
 
     @Test
@@ -82,13 +77,12 @@ class RoomServiceTest {
     void update_ShouldUpdateRoomTitle() {
         when(roomRepository.findById("room1")).thenReturn(Optional.of(room));
         when(roomRepository.save(room)).thenReturn(room);
-        when(roomMapper.toResponse(room)).thenReturn(response);
 
         RoomResponse result = roomService.update("room1", updateRequest, "\"1\"");
 
         verify(loggerService, atLeastOnce()).info(anyString(),anyString(),anyString());
         verify(roomRepository).save(room);
-        assertEquals("Blue", result.title()); // mapper mock controls output
+        assertEquals("Jungle", result.title());
     }
 
     @Test
@@ -109,8 +103,8 @@ class RoomServiceTest {
     @Transactional(readOnly = true)
     void favoriteRoomCounts_ShouldReturnMappedCounts() {
         RoomCountProjection projection = mock(RoomCountProjection.class);
-        when(projection.getTitle()).thenReturn("Blue");
-        when(projection.getFavCount()).thenReturn(5L);
+        when(projection.title()).thenReturn("Blue");
+        when(projection.favCount()).thenReturn(5L);
         when(roomRepository.findFavoriteRoomsWithCounts()).thenReturn(List.of(projection));
 
         List<FavoriteRoomCount> result = roomService.favoriteRoomCounts();

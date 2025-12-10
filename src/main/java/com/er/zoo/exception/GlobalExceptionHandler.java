@@ -40,6 +40,14 @@ public class GlobalExceptionHandler extends BaseExceptionHandler {
         this.logger = logger;
     }
 
+    @ExceptionHandler(AnimalNotFoundException.class)
+    public ResponseEntity<Map<String,Object>> handleAnimalNotFound(AnimalNotFoundException ex){
+        logger.error(ENTITY_NAME,"NOT_FOUND","Animal not found: " + ex.getMessage(),ex);
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(getExceptionDetails(ex));
+
+    }
+
     @ExceptionHandler(MissingRequestHeaderException.class)
     public ResponseEntity<Map<String, Object>> handleMissingHeader(MissingRequestHeaderException ex) {
         logger.error(ENTITY_NAME,"BAD_REQUEST","Missing request header: " + ex.getHeaderName(),ex);

@@ -3,10 +3,12 @@ package com.er.zoo.service;
 import com.er.zoo.dto.AnimalCreateRequest;
 import com.er.zoo.dto.AnimalResponse;
 import com.er.zoo.dto.AnimalUpdateRequest;
+import com.er.zoo.dto.RoomRequest;
+import com.er.zoo.enums.SortField;
+import com.er.zoo.exception.AnimalNotFoundException;
 import com.er.zoo.logging.LoggerService;
 import com.er.zoo.model.Animal;
 import com.er.zoo.model.Room;
-import com.er.zoo.mapper.AnimalMapper;
 import com.er.zoo.repository.AnimalRepository;
 import com.er.zoo.repository.RoomRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -31,7 +33,6 @@ class AnimalServiceTest {
 
     @Mock private AnimalRepository animalRepo;
     @Mock private RoomRepository roomRepo;
-    @Mock private AnimalMapper mapper;
     @Mock private IdempotencyService idempotencyService;
     @Mock private LoggerService loggerService;
 
@@ -48,13 +49,13 @@ class AnimalServiceTest {
     void create_shouldCreateAnimalSuccessfully() {
         AnimalCreateRequest request = new AnimalCreateRequest("Tiger", LocalDate.parse("2025-11-05"));
         Animal entity = new Animal();
-        AnimalResponse response =  new AnimalResponse("id123", "Tiger", LocalDate.parse("2025-11-05"),
-                Instant.now(),Instant.now(),null,null,"0");
+        entity.setId("A1");
+        entity.setTitle("Tiger");
+        entity.setVersion(1L);
+        entity.setLocated(LocalDate.parse("2025-11-05"));
 
         when(idempotencyService.registerKey(any())).thenReturn(true);
-        when(mapper.toEntity(request)).thenReturn(entity);
-        when(animalRepo.save(entity)).thenReturn(entity);
-        when(mapper.toResponse(entity)).thenReturn(response);
+        when(animalRepo.save(any())).thenReturn(entity);
 
         AnimalResponse result = animalService.create(request, "idemp-animal-1");
 
@@ -69,11 +70,10 @@ class AnimalServiceTest {
         Animal entity = new Animal();
         entity.setId("A1");
         entity.setTitle("Lion");
-        AnimalResponse response = new AnimalResponse("id123", "Lion", LocalDate.parse("2025-11-05"),
-                               Instant.now(),Instant.now(),null,null,"0");
+        entity.setVersion(1L);
+
 
         when(animalRepo.findById("A1")).thenReturn(Optional.of(entity));
-        when(mapper.toResponse(entity)).thenReturn(response);
 
         AnimalResponse result = animalService.getAnimal("A1");
 
@@ -85,7 +85,7 @@ class AnimalServiceTest {
     @DisplayName("Should throw when animal not found")
     void get_shouldThrowWhenAnimalNotFound() {
         when(animalRepo.findById("999")).thenReturn(Optional.empty());
-        assertThrows(IllegalArgumentException.class, () -> animalService.get("999"));
+        assertThrows(AnimalNotFoundException.class, () -> animalService.get("999"));
     }
 
     @Test
@@ -101,8 +101,6 @@ class AnimalServiceTest {
 
         when(animalRepo.findById(id)).thenReturn(Optional.of(existing));
         when(animalRepo.save(existing)).thenReturn(existing);
-        when(mapper.toResponse(existing)).thenReturn(new AnimalResponse(id, "NewTitle", LocalDate.parse("2025-11-05"),
-                Instant.now(),Instant.now(),null,null,"0"));
 
         AnimalResponse result = animalService.update(id, update, ifMatch);
 
@@ -131,13 +129,12 @@ class AnimalServiceTest {
         animal.setVersion(1L);
         Room room = new Room();
         room.setId("R1");
-        AnimalResponse response = new AnimalResponse("A4", "Tiger", LocalDate.parse("2025-11-05"),
-                Instant.now(),Instant.now(),"R1",null,"0");
+        room.setVersion(1L);
+
 
         when(animalRepo.findById("A4")).thenReturn(Optional.of(animal));
         when(roomRepo.findById("R1")).thenReturn(Optional.of(room));
         when(animalRepo.save(animal)).thenReturn(animal);
-        when(mapper.toResponse(animal)).thenReturn(response);
 
         AnimalResponse result = animalService.assignToRoom("A4", "R1", "1");
 
@@ -164,21 +161,17 @@ class AnimalServiceTest {
         Animal entity1 = new Animal();
         entity1.setId("A6");
         entity1.setTitle("Elephant");
+        entity1.setVersion(1L);
 
         Animal entity2 = new Animal();
         entity2.setId("A7");
         entity2.setTitle("Tiger");
+        entity2.setVersion(1L);
+        RoomRequest roomRequest = new RoomRequest("R2", SortField.TITLE, Sort.Direction.ASC, 0, 5);
 
-        AnimalResponse response1 = new AnimalResponse("A6", "Elephant", LocalDate.parse("2025-11-05"),
-                Instant.now(),Instant.now(),"R2",null,"0");
-        AnimalResponse response2 = new AnimalResponse("A7", "Tiger", LocalDate.parse("2025-11-05"),
-                Instant.now(),Instant.now(),"R2",null,"0");
         Page<Animal> page = new PageImpl<>(List.of(entity1,entity2));
         when(animalRepo.findByRoomId(eq("R2"), any(Pageable.class))).thenReturn(page);
-        when(mapper.toResponse(entity1)).thenReturn(response1);
-        when(mapper.toResponse(entity2)).thenReturn(response2);
-
-        Page<AnimalResponse> result = animalService.getAnimalsInRoom("R2", "title", "asc", 0, 5);
+        Page<AnimalResponse> result = animalService.getAnimalsInRoom(roomRequest);
 
         assertEquals(2, result.getTotalElements());
         assertEquals("Elephant", result.getContent().get(0).title());

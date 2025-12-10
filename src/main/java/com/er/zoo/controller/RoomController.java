@@ -1,6 +1,7 @@
 package com.er.zoo.controller;
 
 import com.er.zoo.dto.*;
+import com.er.zoo.model.Room;
 import com.er.zoo.service.RoomService;
 import com.er.zoo.service.AnimalService;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -42,10 +43,12 @@ public class RoomController {
     }
 
     @PostMapping(consumes = "application/json", produces = "application/json")
-    public ResponseEntity<RoomResponse> create(@Valid @RequestBody RoomCreateRequest request,
-                                               @RequestHeader("Idempotency-Key") String idempotencyKey) {
+    public ResponseEntity<Room> create(@Valid @RequestBody RoomCreateRequest request,
+                                       @RequestHeader("Idempotency-Key") String idempotencyKey) {
         var saved = roomService.create(request,idempotencyKey);
-        return ResponseEntity.created(URI.create("/rooms/" + saved.id())).body(saved);
+        return ResponseEntity.created(URI.create("/rooms/" + saved.getId()))
+                .eTag(saved.getVersion().toString())
+                .body(saved);
     }
 
     @GetMapping(value = "/{id}", produces = "application/json")
@@ -82,13 +85,9 @@ public class RoomController {
 
     @GetMapping("/{roomId}/animals")
     public Page<AnimalResponse> getAnimalsInRoom(
-            @PathVariable String roomId,
-            @RequestParam(defaultValue = "title") String sort,
-            @RequestParam(defaultValue = "asc") String order,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @Valid @ModelAttribute RoomRequest roomRequest
     ) {
-        return animalService.getAnimalsInRoom(roomId, sort, order, page, size);
+        return animalService.getAnimalsInRoom(roomRequest);
     }
 
     @GetMapping("/favorites")

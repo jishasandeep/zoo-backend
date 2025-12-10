@@ -2,8 +2,9 @@ package com.er.zoo;
 
 import com.er.zoo.dto.AnimalResponse;
 import com.er.zoo.dto.AnimalUpdateRequest;
+import com.er.zoo.dto.RoomRequest;
+import com.er.zoo.enums.SortField;
 import com.er.zoo.model.Animal;
-import com.er.zoo.mapper.AnimalMapper;
 
 import com.er.zoo.repository.AnimalRepository;
 import com.er.zoo.repository.RoomRepository;
@@ -44,8 +45,6 @@ class AnimalServiceCacheIT {
     @MockBean
     private RoomRepository roomRepo;
 
-    @MockBean
-    private AnimalMapper mapper;
 
     @MockBean
     private IdempotencyService idempotencyService;
@@ -59,7 +58,7 @@ class AnimalServiceCacheIT {
     @BeforeEach
     void clearCache() {
         cacheManager.getCacheNames().forEach(n -> Objects.requireNonNull(cacheManager.getCache(n)).clear());
-        reset(animalRepo, roomRepo, mapper);
+        reset(animalRepo, roomRepo);
     }
 
     @Test
@@ -68,10 +67,9 @@ class AnimalServiceCacheIT {
         Animal animal = new Animal();
         animal.setId("a1");
         animal.setTitle("Lion");
+        animal.setVersion(1L);
 
-        AnimalResponse response = new AnimalResponse("a1", "Lion", null, null, null, null, null,"0");
         when(animalRepo.findById("a1")).thenReturn(Optional.of(animal));
-        when(mapper.toResponse(animal)).thenReturn(response);
 
         // First call -> DB hit
         animalService.getAnimal("a1");
@@ -116,12 +114,9 @@ class AnimalServiceCacheIT {
         updated.setVersion(2L);
         updated.setTitle("Updated Tiger");
 
-        AnimalResponse updatedResponse =
-                new AnimalResponse("a3", "Updated Tiger", null, null, null, null, null,"1");
 
         when(animalRepo.findById("a3")).thenReturn(Optional.of(existing));
         when(animalRepo.save(ArgumentMatchers.any(Animal.class))).thenReturn(updated);
-        when(mapper.toResponse(updated)).thenReturn(updatedResponse);
 
         // Cache initial
         animalService.getAnimal("a3");
@@ -141,17 +136,16 @@ class AnimalServiceCacheIT {
         Animal a1 = new Animal();
         a1.setId("a1");
         a1.setTitle("Zebra");
+        a1.setVersion(1L);
         Page<Animal> page = new PageImpl<>(List.of(a1));
-
-        AnimalResponse mapped = new AnimalResponse("a1", "Zebra", null, null, null, null, null,"0");
+        RoomRequest roomRequest = new RoomRequest("r1", SortField.TITLE, Sort.Direction.ASC, 0, 10);
 
         when(animalRepo.findByRoomId(eq("r1"), any(Pageable.class))).thenReturn(page);
-        when(mapper.toResponse(a1)).thenReturn(mapped);
 
         // First call hits DB
-        animalService.getAnimalsInRoom("r1", "title", "asc", 0, 10);
+        animalService.getAnimalsInRoom(roomRequest);
         // Second call cached
-        animalService.getAnimalsInRoom("r1", "title", "asc", 0, 10);
+        animalService.getAnimalsInRoom(roomRequest);
 
         // Verify DB hit only once
         verify(animalRepo, times(1)).findByRoomId(eq("r1"), any(Pageable.class));

@@ -3,8 +3,10 @@ package com.er.zoo.service;
 import com.er.zoo.dto.AnimalCreateRequest;
 import com.er.zoo.dto.AnimalUpdateRequest;
 import com.er.zoo.dto.AnimalResponse;
+import com.er.zoo.dto.RoomRequest;
+import com.er.zoo.exception.AnimalNotFoundException;
 import com.er.zoo.logging.LoggerService;
-import com.er.zoo.mapper.AnimalMapper;
+import com.er.zoo.mapper.Mapper;
 import com.er.zoo.model.Animal;
 import com.er.zoo.model.Room;
 import com.er.zoo.repository.AnimalRepository;
@@ -14,9 +16,6 @@ import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,26 +39,24 @@ import java.util.Set;
 public class AnimalService extends ZooService{
     private final AnimalRepository animalRepo;
     private final RoomRepository roomRepo;
-    private final AnimalMapper mapper;
 
     public AnimalService(AnimalRepository animalRepo, RoomRepository roomRepo,
-                         AnimalMapper mapper, IdempotencyService idempotencyService,
+                         IdempotencyService idempotencyService,
                          LoggerService loggerService) {
         super(idempotencyService, loggerService);
         this.animalRepo = animalRepo;
         this.roomRepo = roomRepo;
-        this.mapper = mapper;
     }
 
     public AnimalResponse create(AnimalCreateRequest request, String idempotencyKey) {
         registerKey(idempotencyKey);
-        return mapper.toResponse(animalRepo.save(mapper.toEntity(request)));
+        return Mapper.toResponse(animalRepo.save(Mapper.toEntity(request)));
     }
 
     @Cacheable(value = "animals", key = "#id")
-    public AnimalResponse getAnimal(String id) { return mapper.toResponse(get(id)); }
+    public AnimalResponse getAnimal(String id) { return Mapper.toResponse(get(id)); }
 
-    public Animal get(String id) { return animalRepo.findById(id).orElseThrow(() -> new IllegalArgumentException("Animal not found")); }
+    public Animal get(String id) { return animalRepo.findById(id).orElseThrow(() -> new AnimalNotFoundException("Animal not found")); }
 
     @CachePut(value = "animals", key = "#id")
     public AnimalResponse update(String id, AnimalUpdateRequest request, String ifMatch) {
@@ -69,7 +66,7 @@ public class AnimalService extends ZooService{
             existing.setTitle(request.title());
         if(request.located()!= null)
             existing.setLocated(request.located());
-        return mapper.toResponse(animalRepo.save(existing));
+        return Mapper.toResponse(animalRepo.save(existing));
     }
 
     @Caching(evict = {
@@ -83,18 +80,16 @@ public class AnimalService extends ZooService{
 
     @CachePut(value = "animals", key = "#animalId")
     @CacheEvict(value = "animalsInRoom", allEntries = true)
-    @Transactional
     public AnimalResponse assignToRoom(String animalId, String roomId, String ifMatch) {
         var animal = get(animalId);
         validateIfMatch(animal.getVersion(),ifMatch);
         var room = roomRepo.findById(roomId).orElseThrow(() -> new IllegalArgumentException("Room not found"));
         animal.setRoomId(room.getId());
-        return mapper.toResponse(animalRepo.save(animal));
+        return Mapper.toResponse(animalRepo.save(animal));
     }
 
     @CachePut(value = "animals", key = "#animalId")
     @CacheEvict(value = "animalsInRoom", allEntries = true)
-    @Transactional
     public void removeFromRoom(String animalId, String roomId, String ifMatch) {
         var animal = get(animalId);
         validateIfMatch(animal.getVersion(),ifMatch);
@@ -124,7 +119,7 @@ public class AnimalService extends ZooService{
             it.getFavoritedByAnimalIds().add(animal.getId());
             roomRepo.save(it);
         });
-        return mapper.toResponse(saved);
+        return Mapper.toResponse(saved);
     }
 
 
@@ -142,15 +137,13 @@ public class AnimalService extends ZooService{
             roomRepo.save(it);
         });
 
-        return mapper.toResponse(saved);
+        return Mapper.toResponse(saved);
     }
     @Cacheable(value = "animalsInRoom", key = "#roomId + ':' + #sortField + ':' + #order + ':' + #page + ':' + #size")
-    public Page<AnimalResponse> getAnimalsInRoom(String roomId, String sortField, String order, int page, int size) {
-        var dir = "desc".equalsIgnoreCase(order) ? Sort.Direction.DESC : Sort.Direction.ASC;
-        var sort = Sort.by(dir, sortField == null ? "title" : sortField);
-        Pageable pageable = PageRequest.of(page, size, sort);
-        Page<Animal> animals = animalRepo.findByRoomId(roomId, pageable);
-        return animals.map(mapper::toResponse);
+    @Transactional(readOnly = true)
+    public Page<AnimalResponse> getAnimalsInRoom(RoomRequest roomRequest) {
+        Page<Animal> animals = animalRepo.findByRoomId(roomRequest.roomId(), roomRequest.toPageable());
+        return animals.map(Mapper::toResponse);
     }
 
     private List<Room> getRooms(List<String> roomIds){

@@ -5,7 +5,7 @@ import com.er.zoo.dto.RoomCreateRequest;
 import com.er.zoo.dto.RoomResponse;
 import com.er.zoo.dto.RoomUpdateRequest;
 import com.er.zoo.logging.LoggerService;
-import com.er.zoo.mapper.RoomMapper;
+import com.er.zoo.mapper.Mapper;
 import com.er.zoo.model.Room;
 import com.er.zoo.repository.RoomRepository;
 import org.springframework.cache.annotation.CacheEvict;
@@ -34,22 +34,20 @@ import java.util.stream.Collectors;
 @Service
 public class RoomService extends ZooService{
     private final RoomRepository roomRepository;
-    private final RoomMapper roomMapper;
 
-    public RoomService(RoomRepository roomRepository, RoomMapper roomMapper,
+    public RoomService(RoomRepository roomRepository,
                        IdempotencyService idempotencyService,
                        LoggerService loggerService) {
         super(idempotencyService, loggerService);
         this.roomRepository = roomRepository;
-        this.roomMapper = roomMapper;
     }
 
-    public RoomResponse create(RoomCreateRequest request, String idempotencyKey) {
+    public Room create(RoomCreateRequest request, String idempotencyKey) {
         registerKey(idempotencyKey);
-        return roomMapper.toResponse(roomRepository.save(roomMapper.toEntity(request)));
+        return roomRepository.save(Mapper.toEntity(request));
     }
     @Cacheable(value = "rooms", key = "#id")
-    public RoomResponse getRoom(String id) { return roomMapper.toResponse(get(id)); }
+    public RoomResponse getRoom(String id) { return Mapper.toResponse(get(id)); }
 
     @CircuitBreaker(name = "roomService", fallbackMethod = "fallbackGetRoom")
     public Room get(String id) { return roomRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Room not found")); }
@@ -69,7 +67,7 @@ public class RoomService extends ZooService{
         validateIfMatch(room.getVersion(),ifMatch);
         if(updateRequest.title()!= null)
             room.setTitle(updateRequest.title());
-        return roomMapper.toResponse(roomRepository.save(room));
+        return Mapper.toResponse(roomRepository.save(room));
     }
 
     @CacheEvict(value = "rooms", key = "#id")
@@ -83,7 +81,7 @@ public class RoomService extends ZooService{
     @Transactional(readOnly = true)
     public List<FavoriteRoomCount> favoriteRoomCounts() {
         return roomRepository.findFavoriteRoomsWithCounts().stream()
-                .map(p -> new FavoriteRoomCount(p.getTitle(), p.getFavCount()))
+                .map(p -> new FavoriteRoomCount(p.title(), p.favCount()))
                 .collect(Collectors.toList());
     }
 }

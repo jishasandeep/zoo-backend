@@ -3,7 +3,6 @@ package com.er.zoo;
 import com.er.zoo.dto.RoomResponse;
 import com.er.zoo.dto.RoomUpdateRequest;
 import com.er.zoo.logging.LoggerService;
-import com.er.zoo.mapper.RoomMapper;
 import com.er.zoo.model.Room;
 import com.er.zoo.repository.RoomRepository;
 import com.er.zoo.service.IdempotencyService;
@@ -38,8 +37,6 @@ class RoomServiceCacheIT {
     @MockBean
     private RoomRepository roomRepo;
 
-    @MockBean
-    private RoomMapper mapper;
 
     @MockBean
     private IdempotencyService idempotencyService;
@@ -53,7 +50,7 @@ class RoomServiceCacheIT {
     @BeforeEach
     void clearCache() {
         cacheManager.getCacheNames().forEach(n -> Objects.requireNonNull(cacheManager.getCache(n)).clear());
-        reset(roomRepo, mapper);
+        reset(roomRepo);
     }
 
     @Test
@@ -62,10 +59,9 @@ class RoomServiceCacheIT {
         var room = new Room();
         room.setId("R123");
         room.setTitle("Green");
+        room.setVersion(1L);
 
-        RoomResponse response = new RoomResponse("R123", "Green", null, null, "0");
         when(roomRepo.findById("R123")).thenReturn(Optional.of(room));
-        when(mapper.toResponse(room)).thenReturn(response);
 
         // First call -> DB hit
         roomService.getRoom("R123");
@@ -111,10 +107,8 @@ class RoomServiceCacheIT {
         updatedRoom.setTitle("New Room");
         updatedRoom.setVersion(2L);
 
-        RoomResponse updatedResponse = new RoomResponse("R123","New Room",null,null,"2");
         when(roomRepo.findById("R123")).thenReturn(Optional.of(room));
         when(roomRepo.save(any(Room.class))).thenReturn(updatedRoom);
-        when(mapper.toResponse(updatedRoom)).thenReturn(updatedResponse);
 
         // Preload cache
         roomService.get("R123");
